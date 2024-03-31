@@ -17,8 +17,9 @@
   });
   $: $editorSession.promptChain.parametersDict = piledParameterDict($editorSession.promptChain);
   let lastSavedPromptChain: PromptChain = JSON.parse(JSON.stringify($editorSession.promptChain));
-  let userEditedChain: boolean;
-  $: userEditedChain = ! areChainsEquivalent(JSON.parse(JSON.stringify($editorSession.promptChain)), lastSavedPromptChain);
+  let userEditedChain: boolean = false;
+  $: userEditedChain = ! areChainsEquivalent($editorSession.promptChain, lastSavedPromptChain);
+  // $: userEditedChain = ! areChainsEquivalent(JSON.parse(JSON.stringify($editorSession.promptChain)), lastSavedPromptChain);
 
   export let isShared: boolean = false;   // Show "Share" tab with permalink
   export let chainId: string | null = null;

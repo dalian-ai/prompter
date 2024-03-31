@@ -8,6 +8,7 @@ import { faBook, faPlug, faRobot, type IconDefinition } from '@fortawesome/free-
 import type { DocumentIndexStep } from './documentIndex';
 import type { RestStep } from './rest';
 import type { PromptStep, PromptStepResult } from './prompts';
+import type { EmbeddingCache } from '$lib/embeddingCache';
 
 export const promptSchemaVersion: number = 5; /* 5: prompts -> steps */
                                               /* 4: camelCase; add predictionService, predictionSettings */
@@ -57,10 +58,6 @@ interface StepTypeData {
   label: string,
   icon: IconDefinition
 }
-
-//                           modelSpec -> (segmentHash -> embedding)
-export type EmbeddingCache = Record<string, Record<string, number[]>>
-// export type EmbeddingCache = {[embeddingService in PredictionService]?: Record<string, Record<string, number[]>> }
 
 export const STEP_TYPE_DATA: Record<StepType, StepTypeData> = {
   [StepType.prompt]: {
