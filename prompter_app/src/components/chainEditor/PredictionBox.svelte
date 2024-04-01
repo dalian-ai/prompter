@@ -1,12 +1,12 @@
 <script lang="ts">
 import { parameterNameList, StepType } from "$lib/chains/chains";
-import { faPlay } from "@fortawesome/free-solid-svg-icons";
+import { faPlay, faSpinner } from "@fortawesome/free-solid-svg-icons";
 // import { faOpenai } from "@fortawesome/free-brands-svg-icons";
 
 import Fa from "svelte-fa";
 import { Clock } from "svelte-loading-spinners";
 import { userSettings } from "$lib/userSettings";
-import { RunStatus, errorStatus, type StepRunStatus } from "$lib/prediction/chain";
+import { RunStatus, errorStatus } from "$lib/prediction/chain";
 import { PromptStepPredictor, type LLMStreamedTokenData } from "$lib/prediction/promptStep";
 import { runRestStep, type RenderedRestStep, type RestStep } from "$lib/chains/rest";
 import { editorSession, renderedSteps } from "$lib/editorSession";
@@ -97,7 +97,9 @@ async function handlePredict() {
 
     <!-- Predict Button -->
     <div class="predictButtonCell">
-        {#if ! isPredicting}
+        {#if ! $editorSession.embeddingCacheLoaded}
+          <div style="display:inline-block; margin: 1em 0 0 0;" title="Loading embedding cache, should take a couple of seconds..."><span><Fa icon={faSpinner} spin /></span></div>
+        {:else if ! isPredicting}
             <button
               class="button runButton"
               title="Run prediction"

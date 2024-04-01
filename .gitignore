@@ -7,3 +7,5 @@ prompter_app/data/*
 !prompter_app/data/V/
 .DS_Store
 *.zip
+tmp/
+prompter_app/src/routes/sandbox/

@@ -3,7 +3,9 @@ import { page } from "$app/stores";
 import type { PromptChain } from "$lib/chains/chains";
 	import { pruneChain } from "$lib/chains/util";
 	import { editorSession } from "$lib/editorSession";
+	import { dumpEmbeddingCache, pruneEmbeddingCache } from "$lib/embeddingCache";
 import { faClone, faSave, faShare } from "@fortawesome/free-solid-svg-icons";
+	import { bytesToBase64 } from "byte-base64";
 import Fa from "svelte-fa";
 import { Clock } from "svelte-loading-spinners";
 
@@ -24,15 +26,22 @@ if (editKey) sharedUrlEditable = sharedUrlReadOnly + '?editKey=' + editKey;
 let sharedUrlUser = sharedUrlReadOnly;
 $: sharedUrlUser = isSharedEditable ? sharedUrlEditable : sharedUrlReadOnly;
 
+async function getPostChainJson() : Promise<string> {
+  $editorSession.promptChain = await pruneChain($editorSession.promptChain);
+  $editorSession.embeddingCache = await pruneEmbeddingCache($editorSession.embeddingCache, $editorSession.promptChain);
+  let body: any = structuredClone($editorSession.promptChain);
+  body['embeddingCacheBase64'] = bytesToBase64(dumpEmbeddingCache($editorSession.embeddingCache));
+  return JSON.stringify(body);
+}
+
 async function handleShare() {
     isSharing = true;
     error = "";
 
     try {
-      $editorSession.promptChain = await pruneChain($editorSession.promptChain);
       const res = await fetch(`/api/chain`, {
         method: 'POST',
-        body: JSON.stringify($editorSession.promptChain)
+        body: await getPostChainJson()
       });
 
       if (! res.ok) {
@@ -65,10 +74,9 @@ async function handleUpdate() {
     error = "";
 
     try {
-      $editorSession.promptChain = await pruneChain($editorSession.promptChain);
       const res = await fetch(`/api/chain/${chainId}?editKey=${editKey}`, {
         method: 'POST',
-        body: JSON.stringify($editorSession.promptChain)
+        body: await getPostChainJson()
       })
       .then(async function(response) {
         if (!response.ok){
@@ -77,7 +85,7 @@ async function handleUpdate() {
           throw Error(response.status + " " + response.statusText + ": " + responseText);
         } else {
           console.log(`Updated prompt chain with id: ${chainId}`);
-          lastSavedPromptChain = JSON.parse(JSON.stringify($editorSession.promptChain));
+          lastSavedPromptChain = structuredClone($editorSession.promptChain);
           isShared = true;
         }
         isSharing = false;

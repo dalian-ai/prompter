@@ -4,9 +4,9 @@ import OpenAI from "openai";
 import { StepType, type Step, type StepResult } from "./chains";
 import type { LocalUserSettings } from "$lib/userSettings";
 import { CloseVectorEmbeddingsWeb, CloseVectorHNSWWeb } from "closevector-web";
-import xxhash, { type XXHashAPI } from "xxhash-wasm";
 import { get } from "svelte/store";
 import { editorSession } from "$lib/editorSession";
+import { getCacheDocumentHasher, getEmbeddingModelSpecString } from "$lib/embeddingCache";
 
 export type DocumentId = string
 export type QueryKey = string;
@@ -82,11 +82,6 @@ export function getSegments(docIndexStep: DocumentIndexStep) : Record<string, st
 
 export function getEmbeddingModelName(docIndexStep: DocumentIndexStep) : string {
   return docIndexStep.embeddingSettings[docIndexStep.embeddingService].modelName
-}
-
-export function getEmbeddingModelSpecString(docIndexStep: DocumentIndexStep) : string {
-  // ollama|gemma:7b
-  return docIndexStep.embeddingService + '|' + getEmbeddingModelName(docIndexStep);
 }
 
 //
@@ -192,41 +187,6 @@ async function embedSegmentsOllama(segments: string[], modelName: string, userSe
   return result;
 }
 
-
-let xxhashLoaded = xxhash();
-
-/**
- * Centralizes the segment hash function to ensure consistent cache access
- */
-export class CacheDocumentHasher {
-  loadedXxhash: XXHashAPI
-
-  constructor(loadedXxhash: XXHashAPI) {
-    this.loadedXxhash = loadedXxhash;
-  }
-
-  hash(text: string) : string {
-    return this.loadedXxhash.h32ToString(text);
-  }
-}
-
-/**
- * We use xxhash-wasm for cache, which is fast but require async load of the WASM module.
- * This function returns a document hasher class that recycles the xxhash instance that
- * is loaded at module level.
- * 
- * This way hashing 100K "Mary had a little lamb" strings took 78ms, comparable with loading
- * xxhash directly (84ms). A baseline wrapper hashString function that 1) awaits xxhash 2) hashes
- * a single string input goes out of memory. A modified hashString that awaits on documentIndex.xxhashLoaded
- * took 1464ms to hash the 100K strings.
- * 
- * @returns A CacheDocumentHasher instance
- */
-export async function getCacheDocumentHasher() : Promise<CacheDocumentHasher> {
-  let hasher = await xxhashLoaded;
-  return new CacheDocumentHasher(hasher);
-}
-
 class CloseVectorCustomEmbeddings extends CloseVectorEmbeddingsWeb {
   docIndexStep: DocumentIndexStep
   userSettings: LocalUserSettings;
@@ -250,7 +210,7 @@ class CloseVectorCustomEmbeddings extends CloseVectorEmbeddingsWeb {
   async embedDocuments(texts: string[]): Promise<number[][]> {
     if (texts.length == 0) return [];
 
-    let chainCache = get(editorSession).promptChain.embeddingCache;
+    let chainCache = get(editorSession).embeddingCache;
     const modelSpec = getEmbeddingModelSpecString(this.docIndexStep);
     if (! chainCache[modelSpec]) chainCache[modelSpec] = {}
     let cache: Record<string, number[]> = chainCache[modelSpec];
@@ -295,7 +255,7 @@ class CloseVectorCustomEmbeddings extends CloseVectorEmbeddingsWeb {
 
     // Notify editor session subscribers
     editorSession.update((updater) => {
-      updater.promptChain.embeddingCache[modelSpec] = cache;
+      updater.embeddingCache[modelSpec] = cache;
       return updater;
      })
 

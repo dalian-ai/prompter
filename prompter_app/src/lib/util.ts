@@ -49,3 +49,9 @@ function isEqualToObject(anObject: any, candidate: any): boolean {
 
     return true;
 }
+
+export function assert(value: unknown) {
+    if (! value) {
+        throw Error("Assertion Error (todo: find out how assertions work in typescript...");
+    }
+}

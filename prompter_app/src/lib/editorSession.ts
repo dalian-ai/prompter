@@ -5,15 +5,23 @@ import { getExampleRestStep, type RenderedRestStep, type RestStep, type RestStep
 import type { StepRunStatus } from "./prediction/chain";
 import { renderTemplate, type RenderedTemplate } from "./jinja";
 import { getDefaultDocumentIndexStep, type DocumentIndexStep, type RenderedDocumentIndex, getExportedDocIndexResults } from "./chains/documentIndex";
+import type { EmbeddingCache } from "./embeddingCache";
 
 // Session
 
 export interface ChainEditorSession {
     promptChain: PromptChain,
-    predictionStatus: Record<string, StepRunStatus>
+    predictionStatus: Record<string, StepRunStatus>,
+    embeddingCache: EmbeddingCache,
+    embeddingCacheLoaded: boolean
 }
 
-export const editorSession = writable<ChainEditorSession>({promptChain: getDefaultChain(), predictionStatus: {}});
+export const editorSession = writable<ChainEditorSession>({
+    promptChain: getDefaultChain(),
+    predictionStatus: {},
+    embeddingCache: {},
+    embeddingCacheLoaded: true
+});
 export const renderedSteps: Readable<Record<string,RenderedPrompt | RenderedRestStep | RenderedDocumentIndex>> = derived(
     editorSession,
     ($editorSession) => {
@@ -97,7 +105,6 @@ export function getDefaultChain(): PromptChain {
         steps: [
             getDefaultPrompt("result_0"),
         ],
-        embeddingCache: {}
     }
 }
 

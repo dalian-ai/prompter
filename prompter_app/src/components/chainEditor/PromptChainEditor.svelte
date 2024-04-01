@@ -9,11 +9,21 @@
 	import Button from '../Button.svelte';
 	import { addChainStep, editorSession, getDefaultChain } from '$lib/editorSession';
 	import AddStepPlaceholder from './AddStepPlaceholder.svelte';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { base64ToBytes } from 'byte-base64';
+	import { loadEmbeddingCache } from '$lib/embeddingCache';
 
   export let promptChain: PromptChain | null = null;
+  export let isShared: boolean = false;   // Show "Share" tab with permalink
+  export let chainId: string | null = null;
+  export let editKey: string | null = null;
+
   editorSession.set({
     promptChain: promptChain ?? getDefaultChain(),
-    predictionStatus: {}
+    predictionStatus: {},
+    embeddingCache: {},
+    embeddingCacheLoaded: ! (chainId)
   });
   $: $editorSession.promptChain.parametersDict = piledParameterDict($editorSession.promptChain);
   let lastSavedPromptChain: PromptChain = JSON.parse(JSON.stringify($editorSession.promptChain));
@@ -21,9 +31,30 @@
   $: userEditedChain = ! areChainsEquivalent($editorSession.promptChain, lastSavedPromptChain);
   // $: userEditedChain = ! areChainsEquivalent(JSON.parse(JSON.stringify($editorSession.promptChain)), lastSavedPromptChain);
 
-  export let isShared: boolean = false;   // Show "Share" tab with permalink
-  export let chainId: string | null = null;
-  export let editKey: string | null = null;
+
+
+  // Embedding Cache is loaded in browser to reduce page loading time
+  onMount(async () => {
+    try {
+      if (chainId && browser) {
+        $editorSession.embeddingCacheLoaded = false;
+        const res = await fetch(`/api/chain/${chainId}/embeddingCache`, {
+          method: 'GET',
+        });
+        if (! res.ok) {
+          throw Error(await res.text());
+        }
+        const embeddingCacheBytes: Uint8Array = base64ToBytes(await res.text());
+        if (embeddingCacheBytes.length > 0) {
+          $editorSession.embeddingCache = loadEmbeddingCache(embeddingCacheBytes);
+        }
+        $editorSession.embeddingCacheLoaded = true;
+      }
+    } catch (err: any) {
+      console.error("Couldn't fetch embedding cache: ", err);
+    }
+    
+  })
 
   let activeTab = (isShared) ? "share" : "prediction";
   

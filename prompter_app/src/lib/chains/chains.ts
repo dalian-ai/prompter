@@ -1,26 +1,14 @@
-import fs from 'fs';
-import util from 'util';
-
-import { convert } from 'html-to-text';
-import { defaultPredictionSettings } from '../services';
 import { isEqual } from '../util';
 import { faBook, faPlug, faRobot, type IconDefinition } from '@fortawesome/free-solid-svg-icons';
 import type { DocumentIndexStep } from './documentIndex';
 import type { RestStep } from './rest';
-import type { PromptStep, PromptStepResult } from './prompts';
-import type { EmbeddingCache } from '$lib/embeddingCache';
+import type { PromptStep } from './prompts';
 
 export const promptSchemaVersion: number = 5; /* 5: prompts -> steps */
                                               /* 4: camelCase; add predictionService, predictionSettings */
                                               /* 3: records are prompt chains */
                                               /* 2: plain text promptText */
                                               /* 1: HTML promptText with Jinja2 template */
-
-function assert(value: unknown) {
-  if (! value) {
-    throw Error("Assertion Error (todo: find out how assertions work in typescript...");
-  }
-}
 
 /*
  * Interfaces
@@ -37,7 +25,6 @@ export interface PromptChain {
   title: string;
   steps: Step[];
   parametersDict: Record<string, string>;
-  embeddingCache: EmbeddingCache;
 }
 
 export interface Step {
@@ -73,160 +60,6 @@ export const STEP_TYPE_DATA: Record<StepType, StepTypeData> = {
       icon: faBook,
   }
 };
-
-
-/*
- * Input/Output
- */
-
-function chainBasePath(promptId: string) {
-  return `./data/${promptId[0]}/${promptId}`
-}
-
-function chainDataPath(promptId: string) {
-  return chainBasePath(promptId) + '/prompt.json'
-}
-
-function chainEditKeyPath(promptId: string) {
-  return chainBasePath(promptId) + '/editKey'
-}
-
-export function chainExists(chainId: string) {
-  return fs.existsSync(chainBasePath(chainId));
-}
-
-export function saveChain(chainId: string, chain: PromptChain, editKey: string) {
-  // export function save({promptId: string, prompt: Prompt}) {
-  console.debug(`Saving chain "${chainId}": ` + util.inspect(chain, {showHidden: false, depth: null, colors: true}));
-
-  const basePath: string = chainBasePath(chainId);
-  if (!fs.existsSync(basePath)) {
-    fs.mkdirSync(basePath, { recursive: true });
-    fs.writeFileSync(
-      chainEditKeyPath(chainId),
-      editKey,
-      'utf8'
-    );
-  } else if (! isValidEditKey(chainId, editKey)) {
-    throw new PermissionDeniedError(`Incorrect editKey for prompt record at: ${basePath}`)
-  }
-
-  fs.writeFileSync(
-    chainDataPath(chainId),
-    JSON.stringify(chain),
-    'utf8'
-  );
-}
-
-function isValidEditKey(chainId: string, editKey: string): boolean {
-  let expected: string = fs.readFileSync(chainEditKeyPath(chainId)).toString();
-  return expected == editKey;
-}
-
-export function loadChain(chainId: string): PromptChain {
-  let rawdata: Buffer;
-
-  try {
-    rawdata = fs.readFileSync(chainDataPath(chainId));
-  } catch (error: any) {
-    const nodeError: NodeJS.ErrnoException = error;
-    if (nodeError.code == "ENOENT") {
-      throw new ChainNotFoundError("Chain not found");
-    } 
-    throw error;
-  }
-
-  let chainOrPrompt: object = JSON.parse(rawdata.toString());
-
-  // Upgrade if legacy record
-  let chain = upgradeChainOrPrompt(chainOrPrompt)
-
-  return chain;
-}
-
-export class ChainNotFoundError extends Error {};
-export class PermissionDeniedError extends Error {};
-
-
-
-/*
- * Record Compatibility
- */
-
-function upgradeChainOrPrompt(chainOrPrompt: any): PromptChain {
-  if (chainOrPrompt.version <= 2) {
-    return upgradePrompt(chainOrPrompt as PromptStep)
-  }
-
-  return upgradeChain(chainOrPrompt as PromptChain);
-}
-
-function upgradePrompt(prompt: any): PromptChain {
-  assert(prompt.version <= 2); // From v3 records have PromptChain type
-
-  if (prompt.version == 1) {
-    prompt.prompt_text = convert(prompt.prompt_text);
-    prompt.version = 2;
-  }
-
-  let result = {
-    version: 3,
-    title: prompt.title,
-    prompts: [prompt]
-  }
-
-  return upgradeChain(result);
-}
-
-function upgradeChain(chain: any): PromptChain {
-  if (chain.version < 4) {
-    chain = {
-      version: 4,
-      title: chain.title,
-      prompts: [{
-        version: 4,
-        promptText: chain.prompts[0].prompt_text,
-        parametersDict: chain.prompts[0].parameters_dict,
-        title: chain.prompts[0].title,
-        predictions: chain.prompts[0].predictions ?? null,
-        predictionService: "openai",
-        predictionSettings: defaultPredictionSettings(),
-      }]
-    }
-  }
-
-  if (chain.version < 5) {
-    chain = {
-      version: 5,
-      title: chain.title,
-      parametersDict: chain.prompts[0].parametersDict,
-      steps: chain.prompts.map((prompt: any) => ({
-        stepType: "prompt",
-        title: prompt.title,
-        resultKey: "result_0",
-        results: prompt.predictions?.map((prediction: any) : PromptStepResult => {
-          return {
-            model: prediction.model,
-            datetime: prediction.datetime,
-            renderedPrompt: prediction.renderedPrompt,
-            resultRaw: prediction.predictionRaw,
-            resultJson: null
-          }
-        }),
-        minimized: false,
-        promptText: prompt.promptText,
-        predictionService: prompt.predictionService,
-        predictionSettings: prompt.predictionSettings
-      }))
-    }
-  }
-
-  if (! chain.embeddingCache) chain.embeddingCache = {};
-
-  // console.log("Loading chain", chain as PromptChain);
-  return chain;
-}
-
 
 /*
  * Util
