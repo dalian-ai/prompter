@@ -1,10 +1,10 @@
 <script>
 	import PromptChainEditor from '../components/chainEditor/PromptChainEditor.svelte';
-	import { env } from '$env/dynamic/public';
+	import { siteName } from '$lib/config/public';
 </script>
 
 <svelte:head>
-	<title>{env.PUBLIC_SITE_NAME}</title>
+	<title>{siteName}</title>
 	<meta name="description" content="A Web UI for editing and sharing LLM prompts" />
 </svelte:head>
 

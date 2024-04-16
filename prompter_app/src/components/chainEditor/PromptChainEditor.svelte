@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { env } from '$env/dynamic/public';
   import { type PromptChain, areChainsEquivalent, piledParameterDict, StepType } from '$lib/chains/chains';
   import Fa from 'svelte-fa'
   import { faPlay, faShare, faCircle, faPlus } from '@fortawesome/free-solid-svg-icons'
@@ -13,6 +12,7 @@
 	import { browser } from '$app/environment';
 	import { base64ToBytes } from 'byte-base64';
 	import { loadEmbeddingCache } from '$lib/embeddingCache';
+	import { siteName } from '$lib/config/public';
 
   export let promptChain: PromptChain | null = null;
   export let isShared: boolean = false;   // Show "Share" tab with permalink
@@ -92,7 +92,7 @@
 </script>
 
 <svelte:head>
-	<title>{titleAsterisk}{$editorSession.promptChain.title} - {env.PUBLIC_SITE_NAME}</title>
+	<title>{titleAsterisk}{$editorSession.promptChain.title} - {siteName}</title>
 	<meta name="description" content="A web UI to edit and share LLM prompts" />
 </svelte:head>
 

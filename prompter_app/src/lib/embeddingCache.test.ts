@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { dumpEmbeddingCache, loadEmbeddingCache, type EmbeddingCache } from './embeddingCache';
+import { dumpEmbeddingCache, loadEmbeddingCache, type EmbeddingCache, trimEmbeddingCache } from './embeddingCache';
 
 export let TOY_CACHE: EmbeddingCache = {
     'fake-model-spec': {
@@ -39,3 +39,27 @@ test('dump and load cache with special characters', () => {
     const serialized = dumpEmbeddingCache(fakeCache);
     expect(loadEmbeddingCache(serialized)).toEqual(fakeCache);
 });
+
+test('strip embedding cache under max size', () => {
+    let modelCache = structuredClone(TOY_CACHE['fake-model-spec'])
+    const fakeCache = {'gemma:2b': modelCache};
+    const expected = structuredClone(fakeCache);
+
+    expect(trimEmbeddingCache(fakeCache, 1000)).toEqual(expected);
+})
+
+test('strip embedding cache equal to max size', () => {
+    let modelCache = structuredClone(TOY_CACHE['fake-model-spec'])
+    const fakeCache = {'gemma:2b': modelCache};
+    const expected = structuredClone(fakeCache);
+
+    expect(trimEmbeddingCache(fakeCache, Object.keys(modelCache).length)).toEqual(expected);
+})
+
+test('strip embedding cache above max size', () => {
+    let modelCache = structuredClone(TOY_CACHE['fake-model-spec'])
+    let fakeCache = {'gemma:2b': modelCache};
+
+    let strippedCache = trimEmbeddingCache(fakeCache, 1); // It's done in place anyways
+    expect(Object.keys(strippedCache['gemma:2b']).length).toEqual(1);
+})

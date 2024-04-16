@@ -1,8 +1,8 @@
 <script lang="ts">
-import { env } from "$env/dynamic/public";
 import { PredictionService } from "$lib/services";
 import { readLocalSettingsDict, setLocalSettings, userSettings } from "$lib/userSettings";
 import { page } from '$app/stores';
+	import { siteName } from "$lib/config/public";
 
 export let service: PredictionService;
 
@@ -54,7 +54,7 @@ let persistenceSettings = {
             </td>
         </tr>
         <tr>
-            <td colspan="2" class="userSettingsInfo"><small>Prediction requests are sent from your browser. Your key won't be sent to {env.PUBLIC_SITE_NAME} server, nor included in shared prompts.</small></td>
+            <td colspan="2" class="userSettingsInfo"><small>Prediction requests are sent from your browser. Your key won't be sent to {siteName} server, nor included in shared prompts.</small></td>
         </tr>
     {/if}
 

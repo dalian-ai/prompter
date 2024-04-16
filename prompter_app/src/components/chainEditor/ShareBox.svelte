@@ -3,7 +3,7 @@ import { page } from "$app/stores";
 import type { PromptChain } from "$lib/chains/chains";
 	import { pruneChain } from "$lib/chains/util";
 	import { editorSession } from "$lib/editorSession";
-	import { dumpEmbeddingCache, pruneEmbeddingCache } from "$lib/embeddingCache";
+	import { dumpEmbeddingCache, pruneEmbeddingCache, trimEmbeddingCache } from "$lib/embeddingCache";
 import { faClone, faSave, faShare } from "@fortawesome/free-solid-svg-icons";
 	import { bytesToBase64 } from "byte-base64";
 import Fa from "svelte-fa";
@@ -29,6 +29,7 @@ $: sharedUrlUser = isSharedEditable ? sharedUrlEditable : sharedUrlReadOnly;
 async function getPostChainJson() : Promise<string> {
   $editorSession.promptChain = await pruneChain($editorSession.promptChain);
   $editorSession.embeddingCache = await pruneEmbeddingCache($editorSession.embeddingCache, $editorSession.promptChain);
+  $editorSession.embeddingCache = trimEmbeddingCache($editorSession.embeddingCache)
   let body: any = structuredClone($editorSession.promptChain);
   body['embeddingCacheBase64'] = bytesToBase64(dumpEmbeddingCache($editorSession.embeddingCache));
   return JSON.stringify(body);

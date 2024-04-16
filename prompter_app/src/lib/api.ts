@@ -4,6 +4,7 @@ import type { PromptStep, PromptStepResult } from "./chains/prompts";
 import { defaultPredictionSettings } from "./services";
 import { assert } from "./util";
 import fs from 'fs';
+import { loadEmbeddingCache, type EmbeddingCache, dumpEmbeddingCache, trimEmbeddingCache } from "./embeddingCache";
 
 
 const API_ROOT = '';
@@ -40,8 +41,7 @@ export function chainExists(chainId: string) {
 export function saveChain(chainId: string, chain: PromptChain, editKey: string, embeddingCacheBytes: Uint8Array | null) {
     // export function save({promptId: string, prompt: Prompt}) {
     // console.debug(`Saving chain "${chainId}": ` + util.inspect(chain, {showHidden: false, depth: null, colors: true}));
-    console.log("saving chain emb: ", embeddingCacheBytes);
-
+    // console.log("saving chain emb: ", embeddingCacheBytes);
     const basePath: string = chainBasePath(chainId);
     if (!fs.existsSync(basePath)) {
         fs.mkdirSync(basePath, { recursive: true });
@@ -61,6 +61,11 @@ export function saveChain(chainId: string, chain: PromptChain, editKey: string, 
     );
 
     if (embeddingCacheBytes) {
+        // Strip embeddings exceeding max size
+        // TODO: log malicious calls
+        const embeddingCache: EmbeddingCache = loadEmbeddingCache(embeddingCacheBytes);
+        embeddingCacheBytes = dumpEmbeddingCache(trimEmbeddingCache(embeddingCache));
+
         fs.writeFileSync(
             chainEmbeddingCachePath(chainId),
             Buffer.from(embeddingCacheBytes)

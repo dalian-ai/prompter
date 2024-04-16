@@ -95,8 +95,7 @@
         <RestConfiguration bind:proxiedRequest={restStep.proxied} />
       {:else if docIndexStep}
         <DocumentIndexConfiguration 
-          bind:service={docIndexStep.embeddingService}
-          bind:settings={docIndexStep.embeddingSettings}
+          bind:docIndexStep
         />
       {/if}
     </svelte:fragment>

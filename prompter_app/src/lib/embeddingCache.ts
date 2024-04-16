@@ -4,6 +4,7 @@ import { StepType, type PromptChain } from './chains/chains';
 import { getSegments, type DocumentIndexStep, getEmbeddingModelName } from './chains/documentIndex';
 import type { XXHashAPI } from 'xxhash-wasm';
 import xxhash from 'xxhash-wasm';
+import { embeddingCacheMaxSize } from './config/public';
 
 // import { browser } from '$app/environment';
 // import * as fs from "fs";
@@ -84,6 +85,24 @@ export async function pruneEmbeddingCache(embeddingCache: EmbeddingCache, prompt
     return prunedCache;
 }
 
+
+/**
+ * Drop cached embeddings until the total number is under `embeddingCacheMaxSize`
+ * 
+ * @param embeddingCache An EmbeddingCache object
+ * @returns the same embeddingCache object, stripped of exceeding embeddings
+ */
+export function trimEmbeddingCache(embeddingCache: EmbeddingCache, maxSize: number = embeddingCacheMaxSize) : EmbeddingCache {
+    let embeddingsLeft = maxSize;
+    for (const modelSpec in embeddingCache) {
+        for (const key in embeddingCache[modelSpec]) {
+            if (embeddingsLeft-- <= 0) {
+                delete embeddingCache[modelSpec][key];
+            }
+        }
+    }
+    return embeddingCache;
+}
 
 //
 // I/O
