@@ -9,8 +9,6 @@
 	import PredictionServiceSettings from '../userSettings/PredictionServiceSettings.svelte';
 
     export let docIndexStep: DocumentIndexStep;
-    let service: PredictionService = docIndexStep.embeddingService;
-    let settings: PredictionSettings = docIndexStep.embeddingSettings;
 
     let cacheCount: number = 0;
     $: cacheCount = Object.keys($editorSession.embeddingCache[getEmbeddingModelSpecString(docIndexStep)] ?? {}).length;
@@ -26,7 +24,7 @@
         <tr>
             <th><label for="llmService">Embedding Service</label></th>
             <td>
-                <select name="llmService" id="llmService" bind:value={service}>
+                <select name="llmService" id="llmService" bind:value={docIndexStep.embeddingService}>
                     {#each ENABLED_EMBEDDING_SERVICES as service}
                     <option value={service}>{LLM_SERVICE_NAMES[service]}</option>
                     <!-- <option value={service}>{service}</option> -->
@@ -35,11 +33,11 @@
             </td>
         </tr>
 
-        {#if service == PredictionService.openai}
+        {#if docIndexStep.embeddingService == PredictionService.openai}
             <tr>
                 <th><label for="openaiModel">Embedding Model</label></th>
                 <td>
-                    <select name="openaiModel" id="openaiModel" bind:value={settings.openai.modelName}>
+                    <select name="openaiModel" id="openaiModel" bind:value={docIndexStep.embeddingSettings.openai.modelName}>
                         {#each OPENAI_EMBEDDING_MODELS as model}
                             <option value={model}>{model}</option>
                         {/each}
@@ -49,11 +47,11 @@
         {/if}
         
 
-        {#if service == PredictionService.ollama}
+        {#if docIndexStep.embeddingService == PredictionService.ollama}
             <tr>
                 <th><label for="ollamaModel">Embedding Model</label></th>
                 <td>
-                    <input type="text" name="ollamaModel" id="ollamaModel" bind:value={settings.ollama.modelName} />
+                    <input type="text" name="ollamaModel" id="ollamaModel" bind:value={docIndexStep.embeddingSettings.ollama.modelName} />
                 </td>
             </tr>
         {/if}
@@ -76,7 +74,7 @@
 
     <h2>User configuration</h2>
 
-    <PredictionServiceSettings bind:service />
+    <PredictionServiceSettings bind:service={docIndexStep.embeddingService} />
     
 <style>
 .embeddingCacheCell p {

@@ -28,7 +28,7 @@ export const POST = (async ({ url, request }) => {
     }
     const editKey = crypto.randomUUID(); // TODO: polyfill
     console.log(`POST /api/chain. Generated chainId: ${chainId}`);
-    saveChain(chainId, chain, editKey, embeddingCacheBytes);
+    await saveChain(chainId, chain, editKey, embeddingCacheBytes);
     return new Response(JSON.stringify({
         chainId: chainId,
         editKey: editKey

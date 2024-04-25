@@ -46,7 +46,7 @@
         }
         const embeddingCacheBytes: Uint8Array = base64ToBytes(await res.text());
         if (embeddingCacheBytes.length > 0) {
-          $editorSession.embeddingCache = loadEmbeddingCache(embeddingCacheBytes);
+          $editorSession.embeddingCache = await loadEmbeddingCache(embeddingCacheBytes);
         }
         $editorSession.embeddingCacheLoaded = true;
       }

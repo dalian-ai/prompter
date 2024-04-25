@@ -30,7 +30,7 @@ export const POST = (async ({ url, request, params }) => {
         throw error(400, "Invalid chain record");
     }
     try {
-        saveChain(params.chainId!, chain, editKey, embeddingCacheBytes);
+        await saveChain(params.chainId!, chain, editKey, embeddingCacheBytes);
     } catch (e) {
         if (e instanceof PermissionDeniedError) {
             throw error(403, "Invalid editKey");

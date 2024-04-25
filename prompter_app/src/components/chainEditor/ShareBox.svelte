@@ -31,7 +31,7 @@ async function getPostChainJson() : Promise<string> {
   $editorSession.embeddingCache = await pruneEmbeddingCache($editorSession.embeddingCache, $editorSession.promptChain);
   $editorSession.embeddingCache = trimEmbeddingCache($editorSession.embeddingCache)
   let body: any = structuredClone($editorSession.promptChain);
-  body['embeddingCacheBase64'] = bytesToBase64(dumpEmbeddingCache($editorSession.embeddingCache));
+  body['embeddingCacheBase64'] = bytesToBase64(await dumpEmbeddingCache($editorSession.embeddingCache));
   return JSON.stringify(body);
 }
 

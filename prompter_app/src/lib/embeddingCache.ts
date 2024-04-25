@@ -1,13 +1,9 @@
-import { default as protobuf } from 'protobufjs';
-import * as base64 from "byte-base64";
 import { StepType, type PromptChain } from './chains/chains';
 import { getSegments, type DocumentIndexStep, getEmbeddingModelName } from './chains/documentIndex';
 import type { XXHashAPI } from 'xxhash-wasm';
 import xxhash from 'xxhash-wasm';
 import { embeddingCacheMaxSize } from './config/public';
-
-// import { browser } from '$app/environment';
-// import * as fs from "fs";
+import { dumpEmbeddingCacheProtobuf, loadEmbeddingCacheProtobuf } from './embeddingCacheProtobuf';
 
 
 //
@@ -108,134 +104,23 @@ export function trimEmbeddingCache(embeddingCache: EmbeddingCache, maxSize: numb
 // I/O
 //
 
-// Protobuf schema for efficient serialization:
-// (reduces ~50% wrt JSON)
-//
-// {
-//     version: 1,
-//     models: [
-//         {
-//             model_name: 'any-model-name',
-//             text_hashes: ['aaa', 'bbb'],
-//             embeddings: [{ e: [0.1, 0.2, 0.3] }, { e: [0.4, 0.5, 0.6] }]
-//         }
-//     ]
-// };
-//
+// | N. embeddings | Embedding type   | Size (JSON) | Size (JSON+gzip)    | Size (protobuf)         |
+// |---------------|------------------|-------------|---------------------|-------------------------|
+// | 10            | openai           | 211.5 KB    | 79.5 KB             | 135.4 KB                |
+// | 993           | openai           | 19.1 MB     | 7.1 MB (~7s encode) | 12.2 MB (~500ms encode) |
+// | 993           | nomic-embed-text | 15.1 MB     | 6.9 MB (~6s encode) | 6.1 MB (~400ms encode)  |
 
-var root = protobuf.Root.fromJSON({
-    nested: {
-        embeddingcache: {
-            nested: {
-                EmbeddingCache: {
-                    fields: {
-                        models: {
-                            rule: 'repeated',
-                            type: 'ModelCacheRecord',
-                            id: 1
-                        },
-                        version: {
-                            type: 'int32',
-                            id: 2
-                        }
-                    }
-                },
-                ModelCacheRecord: {
-                    fields: {
-                        model_name: {
-                            type: 'string',
-                            id: 5
-                        },
-                        text_hashes: {
-                            rule: 'repeated',
-                            type: 'string',
-                            id: 3
-                        },
-                        embeddings: {
-                            rule: 'repeated',
-                            type: 'Embedding',
-                            id: 4
-                        }
-                    }
-                },
-                Embedding: {
-                    fields: {
-                        e: {
-                            rule: 'repeated',
-                            type: 'double',
-                            id: 6
-                        }
-                    }
-                }
-            }
-        }
-    }
-});
 
-interface EmbeddingCacheProtoInterface {
-    version: number,
-    models: EmbeddingCacheProtoInterfaceModel[]
-}
-
-interface EmbeddingCacheProtoInterfaceModel {
-    model_name: string,
-    text_hashes: string[],
-    embeddings: {e: number[]}[]
-}
-
-const EmbeddingCacheProto = root.lookupType('embeddingcache.EmbeddingCache');
-
-export function dumpEmbeddingCache(aCacheInstance: EmbeddingCache): Uint8Array {
-    // preprocess original cache
-    var preprocessedCache: Record<any, any> = {
-        version: 1,
-        models: []
-    };
-    for (const modelName in aCacheInstance) {
-        let textHashes: string[] = [];
-        let embeddings: Record<string, number[]>[] = [];
-        for (const textHash in aCacheInstance[modelName]) {
-            textHashes.push(textHash);
-            embeddings.push({ e: aCacheInstance[modelName][textHash] });
-        }
-        preprocessedCache.models.push({
-            model_name: modelName,
-            text_hashes: textHashes,
-            embeddings: embeddings
-        });
-    }
-
-    let encodedBuffer = EmbeddingCacheProto.encode(preprocessedCache).finish();
-
-    // if (! browser) {
-
-    //     fs.appendFile("TMP_EMBEDDING_CACHE", Buffer.from(encodedBuffer), function (err) {
-    //         if (err) {
-    //           throw(err);
-    //         } else {
-    //           return(encodedBuffer.length);
-    //         }
-    //     });
-
-    //     fs.writeFile("TMP_EMBEDDING_CACHE_JSON", JSON.stringify(aCacheInstance), () => {});
-    // }
+export async function dumpEmbeddingCache(aCacheInstance: EmbeddingCache): Promise<Uint8Array> {
+    return dumpEmbeddingCacheProtobuf(aCacheInstance);
     
-    return encodedBuffer;
-    // return base64.bytesToBase64(encodedBuffer);
+    // import { compress } from './gzip';
+    // return compress(JSON.stringify(aCacheInstance));
 }
 
-export function loadEmbeddingCache(serializedCacheBytes: Uint8Array): EmbeddingCache {
-    // const buffer = base64.base64ToBytes(b64SerializedCache);
-    let deserialized: EmbeddingCacheProtoInterface = (EmbeddingCacheProto.decode(serializedCacheBytes) as unknown) as EmbeddingCacheProtoInterface;
-
-    let result: EmbeddingCache = {};
-    deserialized['models'].forEach(modelEntry => {
-        let modelEmbeddings: Record<string, number[]> = {}
-        modelEntry.text_hashes.forEach((textHash, i) => {
-            modelEmbeddings[textHash] = modelEntry.embeddings[i].e;
-        })
-        result[modelEntry.model_name] = modelEmbeddings;
-    });
-
-    return result;
+export async function loadEmbeddingCache(serializedCacheBytes: Uint8Array): Promise<EmbeddingCache> {
+    return loadEmbeddingCacheProtobuf(serializedCacheBytes);
+    
+    // import { decompress } from './gzip';
+    // return JSON.parse(await decompress(serializedCacheBytes));
 }

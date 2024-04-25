@@ -31,14 +31,15 @@ function chainEditKeyPath(promptId: string) {
 }
 
 function chainEmbeddingCachePath(promptId: string) {
-    return chainBasePath(promptId) + '/embeddingCache.bin'
+    return chainBasePath(promptId) + '/embeddingCache.v1.proto'
+    // return chainBasePath(promptId) + '/embeddingCache.json.gz'
 }
 
 export function chainExists(chainId: string) {
     return fs.existsSync(chainBasePath(chainId));
 }
 
-export function saveChain(chainId: string, chain: PromptChain, editKey: string, embeddingCacheBytes: Uint8Array | null) {
+export async function saveChain(chainId: string, chain: PromptChain, editKey: string, embeddingCacheBytes: Uint8Array | null) {
     // export function save({promptId: string, prompt: Prompt}) {
     // console.debug(`Saving chain "${chainId}": ` + util.inspect(chain, {showHidden: false, depth: null, colors: true}));
     // console.log("saving chain emb: ", embeddingCacheBytes);
@@ -61,15 +62,25 @@ export function saveChain(chainId: string, chain: PromptChain, editKey: string, 
     );
 
     if (embeddingCacheBytes) {
-        // Strip embeddings exceeding max size
+        // Enforce cahce max size (frontend should send and already trimmed cache)
         // TODO: log malicious calls
-        const embeddingCache: EmbeddingCache = loadEmbeddingCache(embeddingCacheBytes);
-        embeddingCacheBytes = dumpEmbeddingCache(trimEmbeddingCache(embeddingCache));
+        const embeddingCache: EmbeddingCache = await loadEmbeddingCache(embeddingCacheBytes);
+        embeddingCacheBytes = await dumpEmbeddingCache(trimEmbeddingCache(embeddingCache));
 
         fs.writeFileSync(
             chainEmbeddingCachePath(chainId),
             Buffer.from(embeddingCacheBytes)
         )
+
+        // TEST
+        // fs.writeFileSync(
+        //     chainEmbeddingCachePath(chainId) + "-PROTOBUF",
+        //     Buffer.from(dumpEmbeddingCacheProtobuf(embeddingCache))
+        // )
+        // fs.writeFileSync(
+        //     chainEmbeddingCachePath(chainId) + "-JSON",
+        //     JSON.stringify(embeddingCache)
+        // )
     }
 }
 
@@ -99,9 +110,15 @@ export function loadChain(chainId: string): PromptChain {
     return chain;
 }
 
-export function loadEmbeddingCacheBytes(chainId: string): Uint8Array {
+/**
+ * This is called by API endpoints to retrieve bytes of the embedding cache file. These bytes are meant to be interpreted by {@link loadEmbeddingCache} to produce an {@link EmbeddingCache structure}
+ * 
+ * @param chainId ID of the chain to load embeddings for
+ * @returns An array of bytes containin the embedding cache
+ */
+export function readEmbeddingCacheBytes(chainId: string): Uint8Array {
     if (! fs.existsSync(chainDataPath(chainId))) {
-        throw new ChainNotFoundError("loadEmbeddingCacheBytes: Chain not found");
+        throw new ChainNotFoundError("readEmbeddingCacheBytes: Chain not found");
     }
 
     let rawdata: Buffer;
